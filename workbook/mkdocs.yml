@@ -9,7 +9,7 @@ INHERIT: ./base_config.yml
 
 nav:
   - Home: 'index.md'
-  - Labs:
+  - Exercises:
     - 'Exercise 1: Infrastructure Deployment': 'exercises/exercise1.md'
     - 'Exercise 2: Setting Up Logging': 'exercises/exercise2.md'
     - 'Exercise 3: Attacking the Cloud Account': 'exercises/exercise3.md'

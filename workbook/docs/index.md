@@ -1,15 +1,16 @@
-# Welcome to Attacking and Defending Serverless Applications
+# Welcome to Building Detections in AWS
 
 ## Description
 
-This serverless web application is used by Sherlock's blue team to import evidence data, generate MD5 and SHA1 hashes of the uploaded files, and save the files in a safe location.
+In this workshop, you will work through detection-building process previously discussed in the SANS Webcast, [Building Better Detections... By Hacking | AWS Edition](https://www.sans.org/webcasts/building-better-cloud-detections-hacking-aws-edition/). Below is the overall process we will discuss and follow:
 
-## Your Mission
+![Detection Build Process](img/detection-build-process.png ""){: class="w600" }
 
-Find vulnerabilities in this application **before** it finds its way into production. Also, ensure that proper logging is in place to allow analysts to identify attackers abusing this application. To get started, click on the [Labs](exercises/exercise1/) tab at the top of the page.
+We will conduct the following exercises:
 
-![Application Diagram](img/DevSecOps_Infinity_Loop.png ""){: class="w600" }
-
-## Application Diagram
-
-![Application Diagram](img/exercise5/1.png ""){: class="w600" }
+- [ ] [Exercise 1](exercises/exercise1.md): Deploy cloud resources with AWS CloudFormation to support both the attack and some of the automation that will be used in later exercises
+- [ ] [Exercise 2](exercises/exercise2.md): Setting up appropriate logging to catch the sample attack
+- [ ] [Exercise 3](exercises/exercise3.md): Conduct the sample attack
+- [ ] [Exercise 4](exercises/exercise4.md): Review the log data to detect the attack
+- [ ] [Exercise 5](exercises/exercise5.md): Automate the detection of the attack and test the automation
+- [ ] [Exercise 6](exercises/exercise6.md): Cleanup of the workshop resources
