@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+  SecurityHub:
+    Type: 'AWS::SecurityHub::Hub'
+  LogsBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join
+        - ''
+        - - "cloudlogs-"
+          - !Ref AWS::AccountId
+  LogsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref LogsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: 
+              - "s3:GetBucketAcl"
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref LogsBucket
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Condition:
+              StringEquals: 
+                'aws:SourceArn': !Join
+                  - ''
+                  - - 'arn:aws:cloudtrail:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS::AccountId
+                    - ':trail/security'
+          - Action:
+              - "s3:PutObject"
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref LogsBucket
+                - '/AWSLogs/'
+                - !Ref AWS::AccountId
+                - '/*'
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Condition:
+              StringEquals:
+                's3:x-amz-acl': "bucket-owner-full-control"
+                'aws:SourceArn': !Join
+                  - ''
+                  - - 'arn:aws:cloudtrail:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS::AccountId
+                    - ':trail/security'
+  CloudTrailTrail:
+    Type: 'AWS::CloudTrail::Trail'
+    Properties:
+      IsLogging: True
+      S3BucketName: !Ref LogsBucket
+      TrailName: security
+      EventSelectors:
+        - IncludeManagementEvents: True
+          ReadWriteType: 'All'
+  LambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: LambaSecurityHubPutFinding
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'securityhub:BatchImportFindings'
+                Resource: '*'
+  HoneyFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: HoneyTokenDetection
+      Code:
+        ZipFile: |
+          import boto3
+          from datetime import datetime
+
+          def lambda_handler(event, context):
+              # Get Account ID
+              client = boto3.client('sts')
+              response = client.get_caller_identity()
+              acctId = response['Account']
+              print(acctId)
+    
+              # Write finding
+              timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + "Z"
+              client = boto3.client('securityhub')
+              client.batch_import_findings(
+                  Findings = [{
+                  "AwsAccountId": acctId,
+                  "CreatedAt": timestamp,
+                  "Description": "Honeytoken account used",
+                  "GeneratorId": "custom",
+                  "Id": "honeytoken",
+                  "ProductArn": "arn:aws:securityhub:us-east-1:" + acctId + ":product/" + acctId + "/default",
+                  "Resources": [
+                          {
+                              "Id": "arn:aws:cloudtrail:us-east-1:" + acctId + ":trail/security",
+                              "Partition": "aws",
+                              "Region": "us-east-1",
+                              "Type" : "AWSCloudTrailTrail"
+                          }
+                      ],
+                  "SchemaVersion": "2018-10-08",
+                  "Title": "Honeytoken account used",
+                  "UpdatedAt": timestamp,
+                  "Types": [
+                          "Software and Configuration Checks/Vulnerabilities/CVE"
+                      ],
+                  "Severity": {
+                      "Label": "CRITICAL",
+                      "Original": "CRITICAL"
+                      }
+                  }]
+                  )
+              return {
+                  'statusCode': 200,
+                  'body': "Success!"
+              }
+      Handler: index.lambda_handler
+      Runtime: python3.9
+      Role: !GetAtt LambdaRole.Arn
+  HoneyUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      Path: /
+      UserName: HoneyUser
