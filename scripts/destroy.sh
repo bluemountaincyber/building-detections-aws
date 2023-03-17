@@ -1,5 +1,5 @@
 #!/bin/bash
 
-BUCKET=$(aws s3api list-buckets --query Buckets[].BucketName --output text | grep cloudlogs-)
+BUCKET=$(aws s3api list-buckets | jq -r '.Buckets[] | select(.Name | startswith("cloudlogs-")) | .Name')
 aws s3 rm s3://$BUCKET --recursive
 aws cloudformation delete-stack --stack-name building-detections
