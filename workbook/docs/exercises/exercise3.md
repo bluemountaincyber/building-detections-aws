@@ -13,9 +13,8 @@
 
 ## Objectives
 
-* Create an access and secret key (honey token) for the honey user and set environment variables
+* Create an access and secret key (honey token) for the honey user and configure those credentials for use with the AWS CLI
 * Attempt to perform reconnaissance of the cloud account to generate event data
-* Unset the environment variables so that your default cloud account is used from the command line in future exercises
 
 ## Challenges
 
@@ -23,21 +22,21 @@
 
 The honey user created in the first exercise will do us no good if it can't be used by an attacker (in an effort to help us determine they are active in our account). This user account needs either a password set for AWS Management Console access or (as we'll do here) an access and secret key pair configured. Deploy a new access and secret key using CloudShell for the `HoneyUser` IAM account. 
 
-Also, so the credentials can be used in your CloudShell session, set the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables to their appropriate values.
+Also, so the credentials can be used in your CloudShell session, create a profile in your `~/.aws/credentials` file called `honeyuser` with the new access and secret key info.
 
 ??? cmd "Solution"
 
     1. Once again, return to your CloudShell session (you may need to refresh the page if it timed out).
 
-    2. Using the AWS CLI, you can easily create an access and secret key pair for any IAM user (maximum of two per user). Create one and save the results as the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables for the `HoneyUser` account by running the following commands:
+    2. Using the AWS CLI, you can easily create an access and secret key pair for any IAM user (maximum of two per user). Create one and save the results as the `ACCESS` and `SECRET` environment variables for the `HoneyUser` account by running the following commands:
 
         ```bash
-        export AWS_SECRET_ACCESS_KEY=$(aws iam create-access-key --user-name \
+        export SECRET=$(aws iam create-access-key --user-name \
           HoneyUser --query AccessKey.SecretAccessKey --output text)
-        export AWS_ACCESS_KEY_ID=$(aws iam list-access-keys --user-name HoneyUser \
+        export ACCESS=$(aws iam list-access-keys --user-name HoneyUser \
           --query AccessKeyMetadata[0].AccessKeyId --output text)
-        echo "Access Key ID:     $AWS_ACCESS_KEY_ID"
-        echo "Secret Access Key: $AWS_SECRET_ACCESS_KEY"
+        echo "Access Key ID:     $ACCESS"
+        echo "Secret Access Key: $SECRET"
         ```
 
         !!! summary "Sample results"
@@ -47,7 +46,13 @@ Also, so the credentials can be used in your CloudShell session, set the `AWS_AC
             Secret Access Key: 7XHwl0TEm24iCNRaj4VNDrYfvoMkcCGpWEXAMPLE
             ```
 
-    3. Now, every command you run, until these environment variables are unset, will run as the `HoneyUser` user.
+    3. Use those environment variables to configure a profile called `honeyuser` for use with the AWS CLI tool.
+
+        ```bash
+        aws configure set aws_access_key_id $ACCESS --profile honeyuser
+        aws configure set aws_secret_access_key $SECRET --profile honeyuser
+        aws configure set region us-east-1 --profile honeyuser
+        ```
 
 ### Challenge 2: Perform Reconnaissance with "Stolen Credentials"
 
@@ -75,7 +80,7 @@ This should generate a decent amount of data to help in the creation of our dete
         **Find IAM users**
 
         ```bash
-        aws iam list-users
+        aws iam list-users --profile honeyuser
         ```
 
         !!! summary "Expected result"
@@ -89,7 +94,7 @@ This should generate a decent amount of data to help in the creation of our dete
         **List S3 buckets**
 
         ```bash
-        aws s3api list-buckets
+        aws s3api list-buckets --profile honeyuser
         ```
 
         !!! summary "Expected result"
@@ -101,7 +106,7 @@ This should generate a decent amount of data to help in the creation of our dete
         **Describe EC2 instances**
 
         ```bash
-        aws ec2 describe-instances
+        aws ec2 describe-instances --profile honeyuser
         ```
 
         !!! summary "Expected result"
@@ -114,7 +119,7 @@ This should generate a decent amount of data to help in the creation of our dete
         **Discover DynamoDb databases**
 
         ```bash
-        aws dynamodb list-tables
+        aws dynamodb list-tables --profile honeyuser
         ```
 
         !!! summary "Expected result"
@@ -127,47 +132,6 @@ This should generate a decent amount of data to help in the creation of our dete
             ```
 
     4. At this point, you have successful acted as an attacker with access to cloud credentials. Now to clean things up a bit before getting to the detection of this activity.
-
-### Challenge 3: Unset Environment Variables
-
-So that these honey tokens are not used in future labs, unset the environment variables and use the `GetCallerIdentity` API call to ensure that you are using your correct IAM user (i.e., not `HoneyUser`).
-
-??? cmd "Solution"
-
-    1. Unset the `` and `` environment variables by running the following command:
-
-        ```bash
-        unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-        ```
-
-        !!! summary "Expected result"
-
-            This command does not return anything.
-
-    2. Ensure that you can run commands as the legitimate user. Try this one as an example:
-
-        ```bash
-        aws s3api list-buckets
-        ```
-
-        !!! summary "Sample result"
-
-            ```bash
-            {
-                "Buckets": [
-                    {
-                        "Name": "cloudlogs-123456789010",
-                        "CreationDate": "2023-03-18T11:37:32+00:00"
-                    }
-                ],
-                "Owner": {
-                    "DisplayName": "ryan",
-                    "ID": "e9c322584d211fe214b82aa1a508e8720ed920d53fb3a9c1b8d562abcdeabcde"
-                }
-            }
-            ```
-
-    3. If that command ran successfully, you are good to continue with the exercises.
 
 ## Conclusion
 
