@@ -5,14 +5,14 @@
 ## Objectives
 
 * Log into AWS account and launch **CloudShell** session in the N. Virginia (**us-east-1**) region.
-* Download source code using `git` from developer's [GitHub repository](https://github.com/bluemountaincyber/evidence-app).
-* Deploy workshop resources using AWS CloudFormation.
+* Download source code using `git` from the workshop [GitHub repository](https://github.com/bluemountaincyber/building-detections-aws).
+* Deploy workshop resources using AWS CloudFormation and verify resources were successfully created.
 
 ## Challenges
 
 ### Challenge 1: Launch AWS CloudShell
 
-The exercises performed in this workshop are designed to simply use your web browser - no additional tools (e.g., virtual machines, SSH clients) required! Many cloud vendors allow customers to generate a shell session in a vendor-managed container/VM to perform basic tasks. We will use this to our advantage to deploy, test, and analyze an application called **evidence-app**.
+The exercises performed in this workshop are designed to simply use your web browser - no additional tools (e.g., virtual machines, SSH clients) required! Many cloud vendors allow customers to generate a shell session in a vendor-managed container/VM to perform basic tasks. We will use this to our advantage to deploy resources, perform attacks, and build our detections.
 
 Begin by logging into your AWS account and launch a **CloudShell** session  in the **N. Virginia (us-east-1)** region.
 
@@ -92,73 +92,98 @@ Now that you are in a **CloudShell** session, you will need to download this cod
         !!! summary "Expected Result"
 
             ```bash
-            
+            drwxrwxr-x 5 cloudshell-user cloudshell-user 4096 Mar 17 14:54 .
+            drwxr-xr-x 8 cloudshell-user cloudshell-user 4096 Mar 17 14:54 ..
+            -rw-rw-r-- 1 cloudshell-user cloudshell-user 4720 Mar 17 14:54 BuildingDetections.yaml
+            drwxrwxr-x 8 cloudshell-user cloudshell-user 4096 Mar 17 15:02 .git
+            -rw-rw-r-- 1 cloudshell-user cloudshell-user   24 Mar 17 14:54 .gitignore
+            drwxrwxr-x 2 cloudshell-user cloudshell-user 4096 Mar 17 15:02 scripts
+            drwxrwxr-x 3 cloudshell-user cloudshell-user 4096 Mar 17 14:55 workbook
             ```
 
 ### Challenge 3: Deploy Workshop IaC Resources
 
-Finally, you have all of the components needed to deploy the application in your AWS account.
+Finally, you have all of the components needed to deploy the resources in your AWS account.
 
-Use `deploy.sh` to deploy the IaC (which can be found in the `scripts` directory of the repo you just downloaded). Ensure that all worked properly by searching for the following AWS resources:
+Use `build.sh` to deploy the IaC (which can be found in the `scripts` directory of the repo you just downloaded). Ensure that all worked properly by searching for the following AWS resources using the AWS CLI (also provided in CloudShell):
 
-    - [ ] IAM user named `HoneyToken`
-    - [ ] Lambda function named `HoneyTokenDetection`
-    - [ ] CloudTrail trail named `security`
-    - [ ] S3 bucket beginning with the name `cloudlogs-`
-    - [ ] Security Hub is successfully deployed
+- [ ] IAM user named `HoneyUser`
+- [ ] Lambda function named `HoneyTokenDetection`
+- [ ] Security Hub is successfully deployed
 
-    !!! warning
+!!! warning
 
-        If you already have Security Hub setup in your AWS account within the N. Virginia region (us-east-1), your deployment will fail. The failure will look like this:
+    If you already have Security Hub setup in your AWS account within the N. Virginia region (us-east-1), your deployment will fail. The failure will look like this:
 
-        !!! summary "Failed deployment"
-
-            ```bash
-            
-            ```
-        
-        If that happens, you can run the following commands after this failure and try again:
+    !!! summary "Failed deployment"
 
         ```bash
-
+        Failed to create/update the stack. Run the following command
+        to fetch the list of events leading up to the failure
+        aws cloudformation describe-stack-events --stack-name building-detections
         ```
+    
+    If that happens, you can run the following commands after this failure and try again:
+
+    ```bash
+    aws cloudformation delete-stack --stack-name building-detections
+    aws securityhub disable-security-hub
+    ```
 
 ??? cmd "Solution"
 
-    1. Before you can deploy resources using the `cloudformation-deploy.sh` script, you must be in the current directory where those files reside. Navigate to `/home/cloudshell-user/evidence-app`.
+    1. Run the `build.sh` script located in the `/home/cloudshell-user/building-detections-aws/scripts` directory. After roughly 2 minutes, it should complete.
 
         ```bash
-        cd /home/cloudshell-user/evidence-app
-        pwd
-        ```
-
-        !!! summary "Expected Result"
-
-            ```bash
-            /home/cloudshell-user/evidence-app
-            ```
-
-    2. Run the `cloudformation-deploy.sh` script and, after roughly 5 minutes, you should see a URL for your evidence app.
-
-        ```bash
-        ./cloudformation-deploy.sh
+        /home/cloudshell-user/building-detections-aws/scripts/build.sh
         ```
 
         !!! summary "Sample Result"
 
             ```bash
-            Deploying CloudFormation Stack...
-            Creating DynamoDB entry...
-            Adding webcontent to S3...
-            Complete! Evidence-App URL: https://d2x6hc15286uu2.cloudfront.net
+            Waiting for changeset to be created..
+            Waiting for stack create/update to complete
+            Successfully created/updated stack - building-detections
             ```
 
-    3. If you notice the last line of the output, this is the **URL** of the **evidence-app** that you will be testing. Isn't that nice of the developers to make this URL easy to find? Navigate to this URL in another browser tab to see what we are dealing with.
+    2. Now, check that the resources listed above were deployed properly.
 
-        ![](../img/exercise1/8.png ""){: class="w600" }
+        - IAM user named `HoneyUser`
 
-    4. The application that you are looking is described in the source code repository's [README.md](https://github.com/bluemountaincyber/evidence-app/blob/main/README.md) file.
-    
-        !!! quote "README.md excerpt"
-        
-            This serverless web application is used by Sherlock's blue team to import evidence data, generate MD5 and SHA1 hashes of the uploaded files, and save the files in a safe location.
+            ```bash
+            aws iam get-user --username HoneyUser --query User.Arn
+            ```
+
+            !!! summary "Sample result"
+
+                ```bash
+                "Arn": "arn:aws:iam::123456789010:user/HoneyUser",
+                ```
+
+        - Lambda function named `HoneyTokenDetection`
+
+            ```bash
+            aws lambda get-function --function-name HoneyTokenDetection --query Configuration.FunctionArn --output text
+            ```
+
+            !!! summary "Sample result"
+
+                ```bash
+                arn:aws:lambda:us-east-1:123456789010:function:HoneyTokenDetection
+                ```
+
+        - Security Hub is successfully deployed
+
+            ```bash
+            aws securityhub describe-hub --query HubArn --output text
+            ```
+
+            !!! summary "Sample result"
+
+                ```bash
+                "arn:aws:securityhub:us-east-1:123456789010:hub/default"
+                ```
+
+### Conclusion
+
+Now that you have the resources in place, it's time to **set up logging** in the next exercise!

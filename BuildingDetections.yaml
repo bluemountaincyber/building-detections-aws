@@ -2,69 +2,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Resources:
   SecurityHub:
     Type: 'AWS::SecurityHub::Hub'
-  LogsBucket:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: !Join
-        - ''
-        - - "cloudlogs-"
-          - !Ref AWS::AccountId
-  LogsBucketPolicy:
-    Type: 'AWS::S3::BucketPolicy'
-    Properties:
-      Bucket: !Ref LogsBucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action: 
-              - "s3:GetBucketAcl"
-            Effect: Allow
-            Resource: !Join
-              - ''
-              - - 'arn:aws:s3:::'
-                - !Ref LogsBucket
-            Principal:
-              Service: "cloudtrail.amazonaws.com"
-            Condition:
-              StringEquals: 
-                'aws:SourceArn': !Join
-                  - ''
-                  - - 'arn:aws:cloudtrail:'
-                    - !Ref AWS::Region
-                    - ':'
-                    - !Ref AWS::AccountId
-                    - ':trail/security'
-          - Action:
-              - "s3:PutObject"
-            Effect: Allow
-            Resource: !Join
-              - ''
-              - - 'arn:aws:s3:::'
-                - !Ref LogsBucket
-                - '/AWSLogs/'
-                - !Ref AWS::AccountId
-                - '/*'
-            Principal:
-              Service: "cloudtrail.amazonaws.com"
-            Condition:
-              StringEquals:
-                's3:x-amz-acl': "bucket-owner-full-control"
-                'aws:SourceArn': !Join
-                  - ''
-                  - - 'arn:aws:cloudtrail:'
-                    - !Ref AWS::Region
-                    - ':'
-                    - !Ref AWS::AccountId
-                    - ':trail/security'
-  CloudTrailTrail:
-    Type: 'AWS::CloudTrail::Trail'
-    Properties:
-      IsLogging: True
-      S3BucketName: !Ref LogsBucket
-      TrailName: security
-      EventSelectors:
-        - IncludeManagementEvents: True
-          ReadWriteType: 'All'
   LambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
