@@ -11,7 +11,7 @@ nav:
   - Home: 'index.md'
   - Exercises:
     - 'Exercise 1: Infrastructure Deployment': 'exercises/exercise1.md'
-    - 'Exercise 2: Setting Up Logging': 'exercises/exercise2.md'
+    - 'Exercise 2: Management Plane Logging': 'exercises/exercise2.md'
     - 'Exercise 3: Attacking the Cloud Account': 'exercises/exercise3.md'
     - 'Exercise 4: Detecting the Attack': 'exercises/exercise4.md'
     - 'Exercise 5: Building an Automated Detection': 'exercises/exercise5.md'
