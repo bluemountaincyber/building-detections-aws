@@ -184,6 +184,6 @@ Use `build.sh` to deploy the IaC (which can be found in the `scripts` directory 
                 "arn:aws:securityhub:us-east-1:123456789010:hub/default"
                 ```
 
-### Conclusion
+## Conclusion
 
 Now that you have the resources in place, it's time to **set up logging** in the next exercise!

@@ -122,6 +122,6 @@ Now that you have a bucket to store your security event data, set up a CloudTrai
 
         ![](../img/19.png ""){: class="w600" }
 
-### Conclusion
+## Conclusion
 
 You are now capturing all management events in AWS and storing the artifacts in an S3 bucket! In the next exercise, you will set up and use the honey token associated to our honey user.
