@@ -26,7 +26,7 @@ Resources:
   HoneyFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
-      FunctionName: HoneyTokenDetection
+      FunctionName: HoneyFileDetection
       Code:
         ZipFile: |
           import boto3
@@ -46,7 +46,7 @@ Resources:
                   Findings = [{
                   "AwsAccountId": acctId,
                   "CreatedAt": timestamp,
-                  "Description": "Honeytoken account used",
+                  "Description": "Honey file accessed",
                   "GeneratorId": "custom",
                   "Id": "honeytoken",
                   "ProductArn": "arn:aws:securityhub:us-east-1:" + acctId + ":product/" + acctId + "/default",
@@ -59,7 +59,7 @@ Resources:
                           }
                       ],
                   "SchemaVersion": "2018-10-08",
-                  "Title": "Honeytoken account used",
+                  "Title": "Honey file accessed",
                   "UpdatedAt": timestamp,
                   "Types": [
                           "Software and Configuration Checks/Vulnerabilities/CVE"

@@ -9,130 +9,114 @@
 }
 </style>
 
-**Estimated Time to Complete:** 15 minutes
+**Estimated Time to Complete:** 10 minutes
 
 ## Objectives
 
-* Create an access and secret key (honey token) for the honey user and configure those credentials for use with the AWS CLI
-* Attempt to perform reconnaissance of the cloud account to generate event data
+* Act as an attacker in the following ways to generate log data which will help build your detection and automation:
+    * Perform discovery of S3 resources - ATT&CK Technique T1619 (Cloud Storage Object Discovery)
+    * Download an interesting file - ATT&CK Technique T1530 (Data from Cloud Storage)
 
 ## Challenges
 
-### Challenge 1: Create and Configure Access and Secret Key
+### Challenge 1: Perform ATT&CK Technique T1619 (Cloud Storage Object Discovery)
 
-The honey user created in the first exercise will do us no good if it can't be used by an attacker (in an effort to help us determine they are active in our account). This user account needs either a password set for AWS Management Console access or (as we'll do here) an access and secret key pair configured. Deploy a new access and secret key using CloudShell for the `HoneyUser` IAM account. 
-
-Also, so the credentials can be used in your CloudShell session, create a profile in your `~/.aws/credentials` file called `honeyuser` with the new access and secret key info.
+Using either the AWS Management Console or the AWS CLI (which is shown in the solution below), perform reconnaissance of the S3 buckets. You will find that one contains some interesting data that an attacker may be tempted to download.
 
 ??? cmd "Solution"
 
-    1. Once again, return to your CloudShell session (you may need to refresh the page if it timed out).
+    1. Return to your CloudShell session (you may need to refresh the page if it timed out).
 
-    2. Using the AWS CLI, you can easily create an access and secret key pair for any IAM user (maximum of two per user). Create one and save the results as the `ACCESS` and `SECRET` environment variables for the `HoneyUser` account by running the following commands:
+    2. Discovering cloud resources can be quite simple with the AWS CLI tool as many services have operations prefixed with `describe-` or `list-` to give high-level information about the resources deployed in a cloud service. For the S3 service, the operation to list all buckets is the aptly-named `list-buckets`.
 
         ```bash
-        export SECRET=$(aws iam create-access-key --user-name \
-          HoneyUser --query AccessKey.SecretAccessKey --output text)
-        export ACCESS=$(aws iam list-access-keys --user-name HoneyUser \
-          --query AccessKeyMetadata[0].AccessKeyId --output text)
-        echo "Access Key ID:     $ACCESS"
-        echo "Secret Access Key: $SECRET"
+        aws s3api list-buckets
         ```
 
         !!! summary "Sample results"
 
             ```bash
-            Access Key ID:     AKIATAI5Z6332EXAMPLE
-            Secret Access Key: 7XHwl0TEm24iCNRaj4VNDrYfvoMkcCGpWEXAMPLE
+            {
+                "Buckets": [
+                    {
+                        "Name": "cloudlogs-123456789010",
+                        "CreationDate": "2023-03-19T10:19:13+00:00"
+                    },
+                    {
+                        "Name": "databackup-123456789010",
+                        "CreationDate": "2023-03-19T10:15:32+00:00"
+                    }
+                ],
+                "Owner": {
+                    "DisplayName": "ryan",
+                    "ID": "e9c322584d211fe214b82aa1a508e8720ed920d53fb3a9c1b8d5625a354abcde"
+                }
+            }
             ```
 
-    3. Use those environment variables to configure a profile called `honeyuser` for use with the AWS CLI tool.
+    3. You should see two buckets: one beginning with `cloudlogs-` and one beginning with `databackup-`. To drill into those buckets to view any files or folders, you can use the `aws s3 ls` command like so (the first command acquires your bucket name beginning with `cloudlogs-` programmatically):
 
         ```bash
-        aws configure set aws_access_key_id $ACCESS --profile honeyuser
-        aws configure set aws_secret_access_key $SECRET --profile honeyuser
-        aws configure set region us-east-1 --profile honeyuser
+        BUCKET=$(aws s3api list-buckets | jq -r \
+          '.Buckets[] | select(.Name | startswith("cloudlogs-")) | .Name')
+        aws s3 ls s3://$BUCKET/
         ```
 
-### Challenge 2: Perform Reconnaissance with "Stolen Credentials"
+        !!! summary "Expected result"
 
-A typical first step once credentials are stolen are to enumerate (i.e., see what you can access). Perform reconnaissance of the following AWS resources to see what this honey user has access to:
+            ```bash
+                                       PRE AWSLogs/
+            ```
 
-- IAM users
-- S3 buckets
-- EC2 instances
-- DynamoDB databases
+    4. Yep. Looks like there may be logs in this bucket given the first folder's name. This is commonly found at the root or a customer-defined prefix within an S3 bucket if logging is enabled on a service and writing to S3 (like you did with CloudTrail in the last exercise). If the attacker has write access here, they may be able to delete this log data! Luckily, that is not what we're emulating in this exercise, so take a look at the other bucket.
 
-This should generate a decent amount of data to help in the creation of our detection in the next exercise.
+        ```bash
+        BUCKET=$(aws s3api list-buckets | jq -r \
+          '.Buckets[] | select(.Name | startswith("databackup-")) | .Name')
+        aws s3 ls s3://$BUCKET/
+        ```
+
+        !!! summary "Sample result"
+
+            ```bash
+            2023-03-19 10:16:30         91 password-backup.txt
+            ```
+
+    5. Now *that* looks interesting!
+
+### Challenge 2: Perform ATT&CK Technique T1530 (Data from Cloud Storage)
+
+Now that you found your interesting file, download and review it.
 
 ??? cmd "Solution"
 
-    1. When performing reconnaissance with stolen credentials, there are automated tools (like `pacu`) and manual approaches using vendor-provided tools (like the AWS CLI). We will choose the latter.
-
-    2. The enumeration techniques using the AWS CLI will leverage commands with the `describe-` and `list-` prefixes as these commands perform read only actions against the greater service—showing which resources are deployed in those services and some of the configuration details.
-
-    3. Run a few (or all) of the `describe-` or `list-` commands below:
-
-        !!! note
-
-            These commands will FAIL because the `HoneyUser` has no privileges. This is fine as we don't want an attacker that may stumble upon these credentials to do anything other than make their presense known.
-
-        **Find IAM users**
+    1. To download data from S3 using the AWS CLI, the `aws s3 cp` or `aws s3 sync` operations can be used. We'll use the `cp` option since we're just downloading a single file (although there is a `recursive` option to download more than one file at a time).
 
         ```bash
-        aws iam list-users --profile honeyuser
+        aws s3 cp s3://$BUCKET/password-backup.txt /home/cloudshell-user/password-backup.txt
         ```
 
-        !!! summary "Expected result"
+        !!! summary "Sample result"
 
             ```bash
-            An error occurred (AccessDenied) when calling the ListUsers operation: User: 
-            arn:aws:iam::123456789010:user/HoneyUser is not authorized to perform: iam:ListUsers on resource: 
-            arn:aws:iam::123456789010:user/ because no identity-based policy allows the iam:ListUsers action
+            download: s3://databackup-123456789010/password-backup.txt to ../password-backup.txt
             ```
 
-        **List S3 buckets**
+    2. Review the file with the `cat` command.
 
         ```bash
-        aws s3api list-buckets --profile honeyuser
+        cat /home/cloudshell-user/password-backup.txt 
         ```
 
-        !!! summary "Expected result"
+        !!! summary "Sample result"
 
             ```bash
-            An error occurred (AccessDenied) when calling the ListBuckets operation: Access Denied
+            AWS Root: admin@sherlock.com    | P@ssw0rd1234
+            Sherlock: sherlock@sherlock.com | $h3rL0ck!
             ```
 
-        **Describe EC2 instances**
-
-        ```bash
-        aws ec2 describe-instances --profile honeyuser
-        ```
-
-        !!! summary "Expected result"
-
-            ```bash
-            An error occurred (UnauthorizedOperation) when calling the DescribeInstances operation: 
-            You are not authorized to perform this operation.
-            ```
-
-        **Discover DynamoDb databases**
-
-        ```bash
-        aws dynamodb list-tables --profile honeyuser
-        ```
-
-        !!! summary "Expected result"
-
-            ```bash
-            An error occurred (AccessDeniedException) when calling the ListTables operation: User: 
-            arn:aws:iam::123456789010:user/HoneyUser is not authorized to perform: dynamodb:ListTables on 
-            resource: arn:aws:dynamodb:us-east-1:123456789010:table/* because no identity-based policy allows
-            the dynamodb:ListTables action
-            ```
-
-    4. At this point, you have successful acted as an attacker with access to cloud credentials. Now to clean things up a bit before getting to the detection of this activity.
+    3. Congratulations! You have just emulated an attacker finding a file or interest, downloading it, and reviewing it.
 
 ## Conclusion
 
-Pretty easy, right? It can be easy for an attacker too to perform reconnaissance if they have access to legitimate cloud credentials. Now off to identify the usage of this honey token so that we are aware of a "fox in the hen house" (i.e., attacker in the cloud account).
+Now that you have successfully located and pulled down the honey file, the next exercise will explore how to identify this access.

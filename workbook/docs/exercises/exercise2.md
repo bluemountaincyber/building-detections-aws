@@ -1,4 +1,4 @@
-# Exercise 2: Management Plane Logging
+# Exercise 2: API Event Logging
 
 <!-- markdownlint-disable MD007 MD033-->
 
@@ -15,7 +15,7 @@
 
 * Research ATT&CK Technique T1078.004 detections and discover an approach to use in your AWS account
 * Create log collection S3 bucket
-* Enable CloudTrail trail capturing management events
+* Enable CloudTrail trail capturing management and data events
 
 ## Challenges
 
@@ -82,7 +82,7 @@ To be able to track usage of a honey token, we must monitor its activity. This c
 
 ### Challenge 3: Enable CloudTrail Trail Capturing Management Events
 
-Now that you have a bucket to store your security event data, set up a CloudTrail Trail to capture **all** management events (e.g., API calls) and record this data in the new S3 bucket.
+Now that you have a bucket to store your security event data, set up a CloudTrail Trail to capture **all** management events (e.g., API calls) and S3 data events for the S3 bucket starting with `databackup-`. Record this data in the new S3 bucket created in challenge 2.
 
 ??? cmd "Solution"
 
@@ -112,7 +112,27 @@ Now that you have a bucket to store your security event data, set up a CloudTrai
 
         ![](../img/16.png ""){: class="w200" }
 
-    7. The next page does not need to be changed as management events (both read and write) are selected by default. Click **Next** again to continue.
+    7. The next page allows you to define which type of events to record. By default, management events are selected, but you need to also capture S3 events related to your bucket containing your honey file. Place a check next to **Data events** and scroll down the page. 
+
+        ![](../img/20.png ""){: class="w600" }
+
+    8. In the **Data event** section, click on the **Switch to basic event selectors** button.
+
+        ![](../img/21.png ""){: class="w600" }
+
+    9. When prompted, select **Continue**.
+
+        ![](../img/22.png ""){: class="w400" }
+
+    10. To select events for a particular bucket, uncheck the boxes next to **All current and future S3 buckets** (1 and 2) then click on **Browse** (3) to choose the bucket you want to monitor.
+
+        ![](../img/23.png ""){: class="w600" }
+
+    11. Place a check next to the bucket with the name beginning with `databackup-` (1) and click **Choose** (2).
+
+        ![](../img/24.png ""){: class="w500" }
+
+    12. Click **Next** at the bottom of the page to continue.
 
         ![](../img/17.png ""){: class="w250" }
 
@@ -124,4 +144,4 @@ Now that you have a bucket to store your security event data, set up a CloudTrai
 
 ## Conclusion
 
-You are now capturing all management events in AWS and storing the artifacts in an S3 bucket! In the next exercise, you will set up and use the honey token associated to our honey user.
+You are now capturing all management events and certain data events in AWS and storing the artifacts in an S3 bucket! In the next exercise, you will download the honey token to generate the data necessary to build your detection.

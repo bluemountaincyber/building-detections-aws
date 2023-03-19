@@ -13,8 +13,8 @@
 
 ## Objectives
 
-* Create an AWS EventBridge rule to capture a CloudTrail event involving your `HoneyUser` IAM user making a request and trigger a Lambda function called `HoneyTokenDetection`
-* Use the `HoneyUser` credentials once again to attempt to list S3 buckets (emulating the stolen credential usage)
+* Create an AWS EventBridge rule to capture a CloudTrail data events involving your `password-backup` honey file and trigger a Lambda function called `HoneyFileDetection`
+* Perform T1530 (Data from Cloud Storage) once more to trigger this automation
 * Review Security Hub to find your automated detection
 
 ## Challenges
