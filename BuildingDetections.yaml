@@ -45,24 +45,34 @@ Resources:
               client.batch_import_findings(
                   Findings = [{
                   "AwsAccountId": acctId,
-                  "CreatedAt": timestamp,
-                  "Description": "Honey file accessed",
+                  "CreatedAt": event['detail']['eventTime'],
+                  "Description": "Honey file used",
                   "GeneratorId": "custom",
-                  "Id": "honeytoken",
+                  "Id": "honeyfile-" + event['detail']['sourceIPAddress'],
                   "ProductArn": "arn:aws:securityhub:us-east-1:" + acctId + ":product/" + acctId + "/default",
                   "Resources": [
                           {
-                              "Id": "arn:aws:cloudtrail:us-east-1:" + acctId + ":trail/security",
+                              "Id": "arn:aws:s3:::" + event['detail']['requestParameters']['bucketName'] + "/" + event['detail']['requestParameters']['key'],
                               "Partition": "aws",
                               "Region": "us-east-1",
-                              "Type" : "AWSCloudTrailTrail"
+                              "Type" : "AwsS3Bucket"
                           }
                       ],
+                  "Network": {
+                          "Direction": "IN",
+                          ipver: event['detail']['sourceIPAddress']
+                      },
                   "SchemaVersion": "2018-10-08",
-                  "Title": "Honey file accessed",
-                  "UpdatedAt": timestamp,
+                  "Title": "Honey file used",
+                  "UpdatedAt": event['detail']['eventTime'],
+                  "UserDefinedFields": {
+                      "userName": event['detail']['userIdentity']['userName'],
+                      "eventName": event['detail']['eventName']
+                  },
                   "Types": [
-                          "Software and Configuration Checks/Vulnerabilities/CVE"
+                          "Effects/Data Exfiltration",
+                          "TTPs/Collection",
+                          "Unusual Behaviors/User"
                       ],
                   "Severity": {
                       "Label": "CRITICAL",
