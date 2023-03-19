@@ -80,7 +80,7 @@ Resources:
   SensitiveBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: | !Join
+      BucketName: !Join
         - ''
         - - 'databackup-'
           - !Ref 'AWS::AccountId'
