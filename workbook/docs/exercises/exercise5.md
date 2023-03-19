@@ -25,6 +25,20 @@ Create an AWS EventBridge rule with the following logic:
 
 - 
 
+
+
+{
+  "source": ["aws.s3"],
+  "detail-type": ["AWS API Call via CloudTrail"],
+  "detail": {
+    "eventSource": ["s3.amazonaws.com"],
+    "eventName": ["GetObject"],
+    "requestParameters": {
+      "key": ["password-backup.txt"]
+    }
+  }
+}
+
 ### Challenge 2: Emulate Stolen Credential Usage
 
 ### Challenge 3: Review Security Hub Detection
