@@ -18,3 +18,15 @@
 * Review Security Hub to find your automated detection
 
 ## Challenges
+
+### Challenge 1: Create EventBridge Rule
+
+Create an AWS EventBridge rule with the following logic:
+
+- 
+
+### Challenge 2: Emulate Stolen Credential Usage
+
+### Challenge 3: Review Security Hub Detection
+
+## Conclusion

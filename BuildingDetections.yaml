@@ -77,8 +77,10 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.9
       Role: !GetAtt LambdaRole.Arn
-  HoneyUser:
-    Type: 'AWS::IAM::User'
+  SensitiveBucket:
+    Type: 'AWS::S3::Bucket'
     Properties:
-      Path: /
-      UserName: HoneyUser
+      BucketName: | !Join
+        - ''
+        - - 'databackup-'
+          - !Ref 'AWS::AccountId'
