@@ -23,6 +23,26 @@ Resources:
               - Effect: Allow
                 Action: 'securityhub:BatchImportFindings'
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:logs:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS:AccountId
+                    - ':log-group:/aws/lambda/HoneyFileDetection:*'
+              - Effect: Allow
+                Action: 'logs:CreateLogGroup'
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:logs:'
+                    - !Ref AWS::Region
+                    - ':'
+                    - !Ref AWS:AccountId
+                    - ':*'
   HoneyFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
