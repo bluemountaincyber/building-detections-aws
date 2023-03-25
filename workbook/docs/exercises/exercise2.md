@@ -43,11 +43,11 @@ Review [MITRE ATT&CK Technique T1078.004](https://attack.mitre.org/techniques/T1
 
         ![](../img/11.png ""){: class="w600" }
     
-    6. We are going to think outside the box a bit and leverage a **honey user** that was created in the last lab. Honey users can use honey tokens that are simply fake credentials that we place in key locations of our organization and, if they are used, we detect and immediately respond as the attacker has made their presence known. But how do we monitor and detect this?
+    6. We are going to think outside the box a bit and leverage a **honey file** that was created in the last lab. Honey files simply fake bits of data that we place in key locations of our organization and, if they are accessed, we detect and immediately respond as the attacker has made their presence known. But how do we monitor and detect this?
 
 ### Challenge 2: Create Log Collection S3 Bucket
 
-To be able to track usage of a honey token, we must monitor its activity. This can be done by creating a CloudTrail Trail in AWS. Before you can do that, though, you must create a place to store this data. The resource that will house this data is an S3 bucket. Create an S3 bucket using CloudShell which begins with `cloudlogs-` followed by your AWS account number.
+To be able to track usage of a honey file, we must monitor when it is accessed. This can be done by creating a CloudTrail Trail in AWS with S3 data events enabled. Before you can do that, though, you must create a place to store this data. The resource that will house this data is also a (separate) S3 bucket. Create an S3 bucket using CloudShell which begins with `cloudlogs-` followed by your AWS account number.
 
 ??? cmd "Solution"
 
@@ -82,7 +82,7 @@ To be able to track usage of a honey token, we must monitor its activity. This c
 
 ### Challenge 3: Enable CloudTrail Trail Capturing Management Events
 
-Now that you have a bucket to store your security event data, set up a CloudTrail Trail to capture **all** management events (e.g., API calls) and S3 data events for the S3 bucket starting with `databackup-`. Record this data in the new S3 bucket created in challenge 2.
+Now that you have a bucket to store your security event data, set up a CloudTrail Trail to capture **all management events** (e.g., API calls) and **S3 data events for the S3 bucket starting with** `databackup-`. Record this data in the new S3 bucket created in challenge 2.
 
 ??? cmd "Solution"
 
@@ -144,4 +144,4 @@ Now that you have a bucket to store your security event data, set up a CloudTrai
 
 ## Conclusion
 
-You are now capturing all management events and certain data events in AWS and storing the artifacts in an S3 bucket! In the next exercise, you will download the honey token to generate the data necessary to build your detection.
+You are now capturing all management events and certain data events in AWS and storing the artifacts in an S3 bucket! In the next exercise, you will download the honey file to generate the event data necessary to build your detection.

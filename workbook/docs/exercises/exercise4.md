@@ -53,7 +53,7 @@ Using your CloudShell session, sift through your `cloudlogs-` S3 bucket to disco
                                        PRE AWSLogs/
             ```
 
-    4. Looks like just a single folder called `AWSLogs`. Now see what is in that folder.
+    4. Looks like just a single folder called `AWSLogs/`. Now see what is in that folder.
 
         ```bash
         aws s3 ls s3://$LOGBUCKET/AWSLogs/
@@ -75,10 +75,11 @@ Using your CloudShell session, sift through your `cloudlogs-` S3 bucket to disco
         !!! summary "Expected result"
 
             ```bash
+                                       PRE CloudTrail-Digest/
                                        PRE CloudTrail/
             ```
 
-    6. Further down the rabbit hole, we found another folder called `CloudTrail`. Take a look inside.
+    6. Further down the rabbit hole, we found two folders: `CloudTrail-Digest/` and `CloudTrail/`. Since we left the **** setting on, AWS is hashing our log data and storing these hash values for each entry in the `CloudTrail-Digest` folder. This is useful to identify any modified log data. The event data itself is stored in the `CloudTrail/` folder. Take a look inside that folder.
 
         ```bash
         aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail
@@ -103,7 +104,7 @@ Using your CloudShell session, sift through your `cloudlogs-` S3 bucket to disco
                                        PRE 2023/
             ```
 
-    8. The next folder down is the year. Now, you could repeat this a few more times, but we'll save you the trouble: under this folder is another folder with the number of the month (e.g., `03/`), then the day of the month (e.g., `18`), and then finally the CloudTrail data. To get to the data for today, here's a cheat:
+    8. The next folder down is the year. Now, you could repeat this a few more times, but we'll save you the trouble: under this folder is another folder with the number of the month (e.g., `03/`), then the day of the month (e.g., `18/`), and then finally the CloudTrail data. To get to the data for today, here's a cheat:
 
         ```bash
         DATE=$(date +"%Y/%m/%d")

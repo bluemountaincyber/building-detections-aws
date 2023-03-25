@@ -107,8 +107,9 @@ Finally, you have all of the components needed to deploy the resources in your A
 
 Use `build.sh` to deploy the IaC (which can be found in the `scripts` directory of the repo you just downloaded). Ensure that all worked properly by searching for the following AWS resources using the AWS CLI (also provided in CloudShell):
 
-- [ ] IAM user named `HoneyUser`
-- [ ] Lambda function named `HoneyTokenDetection`
+- [ ] A honey file named ``
+- [ ] An S3 bucket with a name beginning with `databackup-` with a honey file placed inside called `password-backup.txt`
+- [ ] Lambda function named `HoneyFileDetection`
 - [ ] Security Hub is successfully deployed
 
 !!! warning
@@ -148,28 +149,31 @@ Use `build.sh` to deploy the IaC (which can be found in the `scripts` directory 
 
     2. Now, check that the resources listed above were deployed properly.
 
-        - IAM user named `HoneyUser`
+        - S3 bucket beginning with the name `databackup-` and its contents
 
             ```bash
-            aws iam get-user --username HoneyUser --query User.Arn
+            BUCKET=$(aws s3api list-buckets | jq -r '.Buckets[] | select(.Name | startswith("databackup-")) | .Name')
+            aws s3 ls | grep $BUCKET
+            aws s3 ls s3://$BUCKET/
             ```
 
             !!! summary "Sample result"
 
                 ```bash
-                "Arn": "arn:aws:iam::123456789010:user/HoneyUser",
+                2023-03-25 15:35:22 databackup-123456789010
+                2023-03-25 15:36:20         91 password-backup.txt
                 ```
 
-        - Lambda function named `HoneyTokenDetection`
+        - Lambda function named `HoneyFileDetection`
 
             ```bash
-            aws lambda get-function --function-name HoneyTokenDetection --query Configuration.FunctionArn --output text
+            aws lambda get-function --function-name HoneyFileDetection --query Configuration.FunctionArn --output text
             ```
 
             !!! summary "Sample result"
 
                 ```bash
-                arn:aws:lambda:us-east-1:123456789010:function:HoneyTokenDetection
+                arn:aws:lambda:us-east-1:123456789010:function:HoneyFileDetection
                 ```
 
         - Security Hub is successfully deployed
