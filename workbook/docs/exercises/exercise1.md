@@ -80,7 +80,13 @@ Now that you are in a **CloudShell** session, you will need to download this cod
         !!! summary "Expected result"
 
             ```bash
-            
+            Cloning into 'building-detections-aws'...
+            remote: Enumerating objects: 215, done.
+            remote: Counting objects: 100% (215/215), done.
+            remote: Compressing objects: 100% (166/166), done.
+            remote: Total 215 (delta 82), reused 179 (delta 46), pack-reused 0
+            Receiving objects: 100% (215/215), 5.88 MiB | 17.70 MiB/s, done.
+            Resolving deltas: 100% (82/82), done.
             ```
 
     3. Ensure that the code downloaded by running the following command:
