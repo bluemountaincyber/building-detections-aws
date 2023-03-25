@@ -21,17 +21,6 @@ Log back into your **CloudShell** session and use `destroy.sh` to destroy the wo
         /home/cloudshell-user/building-detections-aws/scripts/destroy.sh
         ```
 
-        !!! summary "Expected Results"
-
-            ```bash
-            Removing webcode_final directory...
-            Emptying S3 buckets (1 of 2)...
-            Tearing down CloudFormation Stack (1 of 2)...
-            Emptying S3 buckets (2 of 2)...
-            Tearing down CloudFormation Stack (2 of 2)...
-            Teardown complete!
-            ```
-
 ### Challenge 2: (Optional) Reset CloudShell Home Directory
 
 Delete the contents of your **CloudShell** home directory.
