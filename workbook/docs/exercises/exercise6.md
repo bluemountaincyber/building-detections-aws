@@ -1,4 +1,4 @@
-# Exercise 8: Tearing Down Serverless Application
+# Exercise 6: Tearing Down Serverless Application
 
 **Estimated time to complete:** 5 minutes
 

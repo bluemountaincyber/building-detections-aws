@@ -1,2 +1,3 @@
 workbook/.venv
 **/.venv
+**/workbook/site
