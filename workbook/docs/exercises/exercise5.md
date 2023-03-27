@@ -143,7 +143,7 @@ Now that you understand what the function will do once called upon, create an AW
 
         ![](../img/38.png ""){: class="w600" }
 
-### Challenge 3: Emulate Stolen Credential Usage
+### Challenge 3: Emulate Stolen File Access
 
 Now to see if the EventBridge rule will fire, the Lambda function executes, and a new Security Hub finding will appear related to the access of the honey file. Perform the attack again by downloading the `password-backup.txt` file from S3.
 
