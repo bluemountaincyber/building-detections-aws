@@ -64,6 +64,12 @@ Resources:
               response = client.get_caller_identity()
               acctId = response['Account']
               print(acctId)
+
+              # Check if assumed role and set userName
+              if event['detail']['userIdentity']['type'] == "AssumedRole":
+                  userName = event['detail']['userIdentity']['sessionContext']['sessionIssuer']['userName']
+              else:
+                  userName = event['detail']['userIdentity']['userName']
     
               # Write finding
               client = boto3.client('securityhub')
@@ -105,6 +111,7 @@ Resources:
                       }
                   }]
                   )
+                  
               return {
                   'statusCode': 200,
                   'body': "Success!"
