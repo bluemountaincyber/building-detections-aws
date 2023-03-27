@@ -4,12 +4,12 @@
 
 ## Objectives
 
-* Tear down **evidence-app** resources using `cloudformation-teardown.sh`
+* Teardown **evidence-app** resources using `destroy.sh`
 * (Optional) Reset **CloudShell** home directory contents
 
 ## Challenges
 
-### Challenge 1: Tear Down With Terraform
+### Challenge 1: Teardown Resources
 
 Log back into your **CloudShell** session and use `destroy.sh` to destroy the workshop resources.
 
