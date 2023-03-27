@@ -113,7 +113,7 @@ Finally, you have all of the components needed to deploy the resources in your A
 
 Use `build.sh` to deploy the IaC (which can be found in the `scripts` directory of the repo you just downloaded). Ensure that all worked properly by searching for the following AWS resources using the AWS CLI (also provided in CloudShell):
 
-- [ ] A honey file named ``
+- [ ] A honey file named `password-backup.txt`
 - [ ] An S3 bucket with a name beginning with `databackup-` with a honey file placed inside called `password-backup.txt`
 - [ ] Lambda function named `HoneyFileDetection`
 - [ ] Security Hub is successfully deployed
