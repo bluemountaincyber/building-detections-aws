@@ -36,19 +36,21 @@ Go to the Lambda service and view the code for the `HoneyFileDetection` function
 
     1. Navigate directly to the `HoneyFileDetection` function by going [here](https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/HoneyFileDetection?tab=code).
 
-    2. If you scroll down, you can see the Python code for this function. If you have written Python before, you may be able to determine what this code is performing. If not, here is a breakdown:
+    2. If you scroll down, you can see the Python code for this function. 
 
-        - Lines 1 and 2: Import the AWS Software Development Kit (SDK) for Python (`boto3`) and regular expression (`re`) modules necessary for this automation to function properly.
+        ![](../img/45.png ""){: class="w600" }
+    
+    3. If you have written Python before, you may be able to determine what this code is performing. If not, here is a breakdown:
 
-        - Line 4: Begin handler function. This is the Python function is triggered when the Lambda function is executed.
-
-        - Lines 5 through 9: Since the Security Hub finding that this will generate (more on this in a moment) will have a field name depending on the version of the Internet Protocol (IP) that was identified, set the proper field name by analyzing the `detail.sourceIPAddress` portion of the event that is passed into the Lambda function.
-
-        - Lines 11 through 15: Acquire the account number for the account in which this function is running so that the generated finding contains the proper information.
-
-        - Lines 17 through 56: Based on the information passed to the Lambda function, generate a Security Hub finding with the proper context (e.g., where the `password-backup.txt` file request came from, the name of the API call, the location of the accessed file, the type of finding, and much more).
-
-        - Lines 57 through 60: Just a basic `return` that will inform the caller of any manual invocations that the run was successful.
+        | Line numbers | Description|
+        |:-------------|:-----------|
+        | `1 - 2`      | Import the AWS Software Development Kit (SDK) for Python (`boto3`) and regular expression (`re`) modules necessary for this automation to function properly. |
+        | `4`          | Begin handler function. This is the Python function is triggered when the Lambda function is executed. |
+        | `5 - 9`      | Since the Security Hub finding that this will generate (more on this in a moment) will have a field name depending on the version of the Internet Protocol (IP) that was identified, set the proper field name by analyzing the `detail.sourceIPAddress` portion of the event that is passed into the Lambda function. |
+        | `11 - 15`    | Acquire the account number for the account in which this function is running so that the generated finding contains the proper information. |
+        | `17 - 21`    | As the `userName` entry can be found two different ways depending on if you are using IAM roles, this code extracts the `userName` value properly. Otherwise, the function will error (thanks Shaun McCullough :)) |
+        | `23 - 62`    | Based on the information passed to the Lambda function, generate a Security Hub finding with the proper context (e.g., where the `password-backup.txt` file request came from, the name of the API call, the location of the accessed file, the type of finding, and much more). |
+        | `64 - 67`    | Just a basic `return` that will inform the caller of any manual invocations that the run was successful. |
 
 ### Challenge 2: Create EventBridge Rule
 
@@ -141,7 +143,7 @@ Now that you understand what the function will do once called upon, create an AW
 
         ![](../img/38.png ""){: class="w600" }
 
-### Challenge 2: Emulate Stolen Credential Usage
+### Challenge 3: Emulate Stolen Credential Usage
 
 Now to see if the EventBridge rule will fire, the Lambda function executes, and a new Security Hub finding will appear related to the access of the honey file. Perform the attack again by downloading the `password-backup.txt` file from S3.
 
@@ -175,7 +177,7 @@ Now to see if the EventBridge rule will fire, the Lambda function executes, and 
 
     3. This *should* be enough to trigger the EventBridge rule since the AWS CLI performed the `s3:GetObject` API call for you.
 
-### Challenge 3: Review Security Hub Detection
+### Challenge 4: Review Security Hub Detection
 
 And now for the moment of truth: to see if this automated detection generated a finding in AWS Security Hub. Navigate to the Security Hub service to discover your finding.
 
