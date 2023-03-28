@@ -97,7 +97,7 @@ Resources:
                   "Title": "Honey file used",
                   "UpdatedAt": event['detail']['eventTime'],
                   "UserDefinedFields": {
-                      "userName": event['detail']['userIdentity']['userName'],
+                      "userName": userName,
                       "eventName": event['detail']['eventName']
                   },
                   "Types": [
@@ -111,7 +111,7 @@ Resources:
                       }
                   }]
                   )
-                  
+
               return {
                   'statusCode': 200,
                   'body': "Success!"
