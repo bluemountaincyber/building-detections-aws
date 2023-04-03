@@ -68,8 +68,10 @@ Resources:
               # Check if assumed role and set userName
               if event['detail']['userIdentity']['type'] == "AssumedRole":
                   userName = event['detail']['userIdentity']['sessionContext']['sessionIssuer']['userName']
-              else:
+              elif 'userName' in event['detail']['userIdentity'].keys():
                   userName = event['detail']['userIdentity']['userName']
+              else:
+                  userName = event['detail']['userIdentity']['arn']
     
               # Write finding
               client = boto3.client('securityhub')

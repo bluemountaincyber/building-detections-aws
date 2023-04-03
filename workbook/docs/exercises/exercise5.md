@@ -48,9 +48,9 @@ Go to the Lambda service and view the code for the `HoneyFileDetection` function
         | `4`          | Begin handler function. This is the Python function is triggered when the Lambda function is executed. |
         | `5 - 9`      | Since the Security Hub finding that this will generate (more on this in a moment) will have a field name depending on the version of the Internet Protocol (IP) that was identified, set the proper field name by analyzing the `detail.sourceIPAddress` portion of the event that is passed into the Lambda function. |
         | `11 - 15`    | Acquire the account number for the account in which this function is running so that the generated finding contains the proper information. |
-        | `17 - 21`    | As the `userName` entry can be found two different ways depending on if you are using IAM roles, this code extracts the `userName` value properly. Otherwise, the function will error (thanks Shaun McCullough :)) |
-        | `23 - 62`    | Based on the information passed to the Lambda function, generate a Security Hub finding with the proper context (e.g., where the `password-backup.txt` file request came from, the name of the API call, the location of the accessed file, the type of finding, and much more). |
-        | `64 - 67`    | Just a basic `return` that will inform the caller of any manual invocations that the run was successful. |
+        | `17 - 23`    | As the `userName` entry can be found two different ways depending on if you are using IAM roles, this code extracts the `userName` value properly. Otherwise, the function will error (thanks Shaun McCullough :)) |
+        | `25 - 64`    | Based on the information passed to the Lambda function, generate a Security Hub finding with the proper context (e.g., where the `password-backup.txt` file request came from, the name of the API call, the location of the accessed file, the type of finding, and much more). |
+        | `66 - 69`    | Just a basic `return` that will inform the caller of any manual invocations that the run was successful. |
 
 ### Challenge 2: Create EventBridge Rule
 
