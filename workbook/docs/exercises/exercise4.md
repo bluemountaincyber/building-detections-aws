@@ -82,7 +82,7 @@ Using your CloudShell session, sift through your `cloudlogs-` S3 bucket to disco
     6. Further down the rabbit hole, we found two folders: `CloudTrail-Digest/` and `CloudTrail/`. Since we left the **Log file validation** setting on, AWS is hashing our log data and storing these hash values for each entry in the `CloudTrail-Digest` folder. This is useful to identify any modified log data. The event data itself is stored in the `CloudTrail/` folder. Take a look inside that folder.
 
         ```bash
-        aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail
+        aws s3 ls s3://$LOGBUCKET/AWSLogs/$ACCTNUM/CloudTrail/
         ```
 
         !!! summary "Sample result"
