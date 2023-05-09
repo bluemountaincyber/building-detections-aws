@@ -54,7 +54,9 @@ Using either the AWS Management Console or the AWS CLI (which is shown in the so
             }
             ```
 
-    3. You should see two buckets: one beginning with `cloudlogs-` and one beginning with `databackup-`. To drill into those buckets to view any files or folders, you can use the `aws s3 ls` command like so (the first command acquires your bucket name beginning with `cloudlogs-` programmatically):
+    3. When you see your results, you can scroll through the data using your arrow keys on your keyboard. When finished, press `q` to exit. 
+    
+    4. You should have seen two buckets: one beginning with `cloudlogs-` and one beginning with `databackup-`. To drill into those buckets to view any files or folders, you can use the `aws s3 ls` command like so (the first command acquires your bucket name beginning with `cloudlogs-` programmatically):
 
         ```bash
         BUCKET=$(aws s3api list-buckets | jq -r \
@@ -68,7 +70,7 @@ Using either the AWS Management Console or the AWS CLI (which is shown in the so
                                        PRE AWSLogs/
             ```
 
-    4. Yep. Looks like there may be logs in this bucket given the first folder's name. This is commonly found at the root or a customer-defined prefix within an S3 bucket if logging is enabled on a service and writing to S3 (like you did with CloudTrail in the last exercise). If the attacker has write access here, they may be able to delete this log data! Luckily, that is not what we're emulating in this exercise, so take a look at the other bucket.
+    5. Yep. Looks like there may be logs in this bucket given the first folder's name. This is commonly found at the root or a customer-defined prefix within an S3 bucket if logging is enabled on a service and writing to S3 (like you did with CloudTrail in the last exercise). If the attacker has write access here, they may be able to delete this log data! Luckily, that is not what we're emulating in this exercise, so take a look at the other bucket.
 
         ```bash
         BUCKET=$(aws s3api list-buckets | jq -r \
@@ -82,7 +84,7 @@ Using either the AWS Management Console or the AWS CLI (which is shown in the so
             2023-03-19 10:16:30         91 password-backup.txt
             ```
 
-    5. Now *that* looks interesting!
+    6. Now *that* looks interesting!
 
 ### Challenge 2: Perform ATT&CK Technique T1530 (Data from Cloud Storage)
 
