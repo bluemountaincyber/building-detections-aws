@@ -5,7 +5,7 @@
 <!--Overriding style-->
 <style>
   :root {
-    --sans-primary-color: #0000ff;
+    --sans-primary-color: #880ed4;
 }
 </style>
 

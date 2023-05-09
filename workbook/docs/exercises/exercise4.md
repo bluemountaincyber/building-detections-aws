@@ -125,7 +125,7 @@ Using your CloudShell session, sift through your `cloudlogs-` S3 bucket to disco
             <snip>
             ```
 
-    9. As you can see, every 5 minutes or so, one or more GZIP-compressed JSON files are being created. This is the data we are interested in to discover our attacer's actions.
+    9. As you can see, every 5 minutes or so, one or more GZIP-compressed JSON files are being created. This is the data we are interested in to discover our attacker's actions.
 
 ### Challenge 2: Download Today's Events
 
